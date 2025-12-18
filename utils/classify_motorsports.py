@@ -3,12 +3,30 @@ import re
 _TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
 from config import KEYWORD_MAP, MOTORSPORT_CLASSIFICATION_PROMPT
 from utils.llm_call import call_llm
+from collections import defaultdict
+import json
 #TODO: Understand N-grams and how to generate them.
+CLASSIFICATION_FREQUENCY=defaultdict(lambda:defaultdict(int))
 def classify_with_llm(title):
+    #breakpoint()
     prompt=MOTORSPORT_CLASSIFICATION_PROMPT.format(title=title)
-    classification=call_llm(prompt=prompt)
+    response=call_llm(prompt=prompt)
+    #breakpoint()
+    json_data=json.loads(response)
+    classification=json_data["category"]
+    enteties=json_data["entities"]
+    if classification not in KEYWORD_MAP.keys():
+        return classification
+    for entity in enteties:
+        entity=normalize_entity(entity)
+        CLASSIFICATION_FREQUENCY[classification][entity]+=1
+        if CLASSIFICATION_FREQUENCY[classification][entity]>3:
+            if norm_ent not in KEYWORD_MAP.get(classification,[]):
+                KEYWORD_MAP[classification].append(entity)
     breakpoint()
     return classification
+def normalize_entity(entity: str) -> str:
+    return " ".join(tokenize(entity))
 def tokenize(text):
     return _TOKEN_PATTERN.findall(text.lower())
 def generate_ngrams(tokens,n):
