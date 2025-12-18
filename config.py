@@ -76,7 +76,12 @@ KEYWORD_MAP = {
     ],
 }
 MOTORSPORT_CLASSIFICATION_PROMPT = """
-Classify the following article title into exactly one motorsport category.
+You are classifying motorsport news titles.
+
+Tasks:
+1. Classify the title into exactly one motorsport category.
+2. Extract motorsport-specific entities that strongly indicate this category
+   (e.g., drivers, teams, manufacturers, championships).
 
 Categories:
 - F1
@@ -91,5 +96,8 @@ Categories:
 Title:
 "{title}"
 
-Return only the category name.
+Return JSON strictly in this format:
+  "category": "CATEGORY",
+  "entities": ["entity1", "entity2"]
+
 """.strip()
