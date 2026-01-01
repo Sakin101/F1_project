@@ -5,7 +5,7 @@ from config import KEYWORD_MAP, MOTORSPORT_CLASSIFICATION_PROMPT
 from utils.llm_call import call_llm
 from collections import defaultdict
 import json
-#TODO: Understand N-grams and how to generate them.
+#TODO: Update database to add classification and news type.
 CLASSIFICATION_FREQUENCY=defaultdict(lambda:defaultdict(int))
 def classify_with_llm(title):
     #breakpoint()
@@ -23,7 +23,7 @@ def classify_with_llm(title):
         if CLASSIFICATION_FREQUENCY[classification][entity]>3:
             if norm_ent not in KEYWORD_MAP.get(classification,[]):
                 KEYWORD_MAP[classification].append(entity)
-    breakpoint()
+    #breakpoint()
     return classification
 def normalize_entity(entity: str) -> str:
     return " ".join(tokenize(entity))
