@@ -1,6 +1,6 @@
-from sqlalchemy import func,create_engine,Table, Column, String, MetaData, DateTime,select,update
+from sqlalchemy import func,create_engine,Table, Column, Boolean,String, MetaData, DateTime,select,update, and_
 from config import DB_CONN_STING
-
+from datetime import datetime, timedelta
 engine=create_engine(DB_CONN_STING)
 metadata=MetaData()
 
@@ -19,7 +19,8 @@ news_articles=Table(
     Column("title_type",String),
     Column("motor_sports",String),
     Column("body_text", String),
-    Column("scraping_status",String,default="pending")
+    Column("scraping_status",String,default="pending"),
+    Column("summarized",Boolean,default=False)
 )
 
 #metadata.drop_all(engine)
@@ -42,7 +43,7 @@ def get_pending_article():
         result=conn.execute(
             select(news_articles.c.url, news_articles.c.source).where(
                 news_articles.c.scraping_status=="pending")).fetchall()
-        return [{"url":r.url,"source":r.source} for r in result]
+        return [{"url":row.url,"source":row.source} for row in result]
 def update_article_content(url,body_text):
     with engine.connect() as conn:
         stmt=update(news_articles).where(news_articles.c.url==url).values(
@@ -51,3 +52,27 @@ def update_article_content(url,body_text):
         )
         conn.execute(stmt)
         conn.commit()
+def update_summarization_status(url):
+    with engine.connect() as conn:
+        stmt=update(news_articles).where(news_articles.c.url==url).values(
+            summarized=True
+        )
+        conn.execute(stmt)
+        conn.commit()
+def get_f1_news():
+    #three_days_ago = datetime.utcnow() - timedelta(days=3)
+    with engine.connect() as conn:
+        results = conn.execute(
+            select(news_articles.c.body_text,news_articles.c.title,news_articles.c.url).where(
+                and_(
+                    news_articles.c.title_type == "HARD_NEWS",
+                    news_articles.c.motor_sports == "F1",
+                    news_articles.c.summarized == False
+                    #news_articles.c.published_at >= three_days_ago
+                )
+            )
+        )
+        # for result in results:
+        #     update_summarization_status(result.url)
+        #breakpoint()
+        return [{"title":row.title,"body_text":row.body_text,"url":row.url} for row in results]
