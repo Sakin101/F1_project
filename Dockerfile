@@ -33,7 +33,7 @@ RUN pip install -e .
 
 COPY dags ./dags
 
-ENV AIRFLOW__CORE__EXECUTOR=LocalExecutor
+ENV AIRFLOW__CORE__EXECUTOR=SequentialExecutor
 ENV AIRFLOW__CORE__LOAD_EXAMPLES=False
 ENV AIRFLOW__CORE__DAGS_FOLDER=/opt/airflow/dags
 
