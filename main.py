@@ -2,7 +2,7 @@ from scrapers.rss_discovery import discover_rss_utils
 from scrapers.article_scraper import scrape_full_article
 from utils.llm_call import generate_talking_points,summarize_singleton,summarize_cluster
 from db.postgres_utils import update_summarization_status,get_f1_news
-from config import websites
+from config.config import websites
 from utils.llm_call import get_embeddings
 import hdbscan
 from sklearn.metrics.pairwise import cosine_similarity
@@ -21,10 +21,7 @@ def prepare_text(result):
     text+=body
     text=text[:8000]
     return text
-if __name__=="__main__":
-    #run_discovery()
-    #run_scraping()
-    results=get_f1_news()
+def get_summary(results):
     texts=[]
     url=[]
     batch_size=10
@@ -38,7 +35,6 @@ if __name__=="__main__":
         batch_embeddings=get_embeddings(batch_text)
         batch_embeddings=[embedding.embedding for embedding in batch_embeddings]
         embeddings.extend(batch_embeddings)
-    #breakpoint()
     sim_matrix = cosine_similarity(embeddings)
     dist_matrix = 1 - sim_matrix
     clusterer = hdbscan.HDBSCAN(min_cluster_size=2, metric='precomputed')
@@ -47,7 +43,7 @@ if __name__=="__main__":
     singleton_id=int(max(labels)) + 1 if len(labels) else 0
     #breakpoint()
     for url,label,text in zip(url,labels,texts):
-        #update_summarization_status(url)
+        update_summarization_status(url)
         if int(label)==-1:
             cluster_map[singleton_id]=[text]
             singleton_id+=1
@@ -55,7 +51,6 @@ if __name__=="__main__":
             cluster_map.setdefault(int(label),[]).append(text)
         
     clsuter_digest={}
-    #breakpoint()
     for cluster_id,cluster_texts in cluster_map.items():
         print(cluster_id)
         if len(cluster_texts)==1:
@@ -63,10 +58,12 @@ if __name__=="__main__":
         else:
             digest=summarize_cluster(cluster_texts[:3])
         clsuter_digest[cluster_id]=digest
-    #breakpoint()
     final_script=generate_talking_points(list(clsuter_digest.values()),duration_minutes=20)
-    #breakpoint()
     with open("final_script.txt","w") as f:
         f.write(final_script)
-    #breakpoint()
-    #print(len(result))
+    
+if __name__=="__main__":
+    #run_discovery()
+    #run_scraping()
+    results=get_f1_news()
+    

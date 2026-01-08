@@ -1,6 +1,12 @@
+import os
 from sqlalchemy import func,create_engine,Table, Column, Boolean,String, MetaData, DateTime,select,update, and_
-from config import DB_CONN_STING
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
+
+load_dotenv()
+
+DB_CONN_STING=os.getenv("DB_CONN_STING")
+
 engine=create_engine(DB_CONN_STING)
 metadata=MetaData()
 
