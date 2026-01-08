@@ -1,7 +1,7 @@
 
 import re
 _TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
-from config import KEYWORD_MAP, MOTORSPORT_CLASSIFICATION_PROMPT
+from config.config import KEYWORD_MAP, MOTORSPORT_CLASSIFICATION_PROMPT
 from utils.llm_call import call_llm
 from collections import defaultdict
 import json

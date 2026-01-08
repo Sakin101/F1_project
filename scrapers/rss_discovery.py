@@ -1,8 +1,7 @@
 import os
 import time
 import feedparser
-from google import genai
-from config import CLASSIFICATION_PROMPT_TEMPLATE,websites
+from config.config import CLASSIFICATION_PROMPT_TEMPLATE,websites
 from mistralai import Mistral
 from datetime import timezone
 from dateutil import parser
@@ -10,10 +9,6 @@ from dateutil import parser
 from db.postgres_utils import url_exists,insert_new_article
 from utils.llm_call import call_llm
 from utils.classify_motorsports import classify_motorsport
-#API_key=os.getenv("GEMINI_API_KEY")
-
-# The client gets the API key from the environment variable `GEMINI_API_KEY`.
-#client = genai.Client(api_key=API_key)
 
 
 def discover_rss_utils(feeds:list):
