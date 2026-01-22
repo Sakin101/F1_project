@@ -170,76 +170,14 @@ Ingestion and summarization are intentionally decoupled to:
 * **Daily ingestion** ensures timely data capture
 * **Periodic summarization** reduces unnecessary LLM calls
 
----
-
-## Project Structure
-
-> *To be documented*
-
----
-
-## Requirements
-
-> *To be documented*
-
----
 
 ## Installation
 
-> *To be documented*
 
----
-
-## Usage
-
-### Configuration
-
-> *To be documented*
-
-### Running Scrapers
-
-> *To be documented*
-
-### Database Migrations
-
-> *To be documented*
-
-### Pipeline Execution
-
-#### Summarization Pipeline (Implementation)
-
-The summarization pipeline clusters related F1 news articles using embedding similarity and generates structured talking points for video production.
-
-**Key Steps:**
-
-1. **Fetch Unsummarized Articles**
-   Articles are retrieved from Postgres using `get_f1_news()`.
-
-2. **Text Preparation**
-   Titles and body text are concatenated and truncated to a safe context length.
-
-3. **Embedding Generation (Batched)**
-   Articles are embedded in batches to improve throughput and control LLM/API usage.
-
-4. **Clustering**
-
-   * Cosine similarity is computed between embeddings
-   * Converted to a distance matrix
-   * HDBSCAN clusters semantically similar articles
-   * Noise points (`-1`) are treated as singletons
-
-5. **Summarization Strategy**
-
-   * **Singleton clusters** → `summarize_singleton`
-   * **Multi‑article clusters** → `summarize_cluster`
-
-6. **Talking Point Generation**
-   Cluster‑level summaries are merged into a final script using `generate_talking_points`.
-
-7. **State Update**
-   Each processed article is marked summarized via `update_summarization_status`.
-
----
+```
+        pip intall -r requirements.txt
+```
 
 
-> *To be documented*
+
+
