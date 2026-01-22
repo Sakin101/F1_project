@@ -14,6 +14,9 @@ The system is designed to:
 ## Table of Contents
 
 * [Features](#features)
+* [Design Rationale](#design-rationale)
+* [Installation](#installation)
+
 ---
 
 ## Features
@@ -57,8 +60,8 @@ Confidence Evaluation
 
 ### F1 News Ingestion Pipeline
 
-**DAG ID:** `f1_news_pipeline`
-**Schedule:** Daily
+**DAG ID:** `f1_news_pipeline`  
+**Schedule:** Daily  
 **Purpose:** Discover and scrape new Formula 1 news articles from RSS feeds.
 
 #### Pipeline Stages
@@ -117,21 +120,16 @@ A semantic clustering and summarization system that converts raw F1 news article
 5. **Unsupervised Clustering (HDBSCAN)**
 
    * Articles are grouped using density‑based clustering
-   * Naturally determines the number of clusters
+   * The number of clusters is determined automatically
    * Noise points (outliers) are treated as standalone stories
 
 6. **Adaptive Summarization Strategy**
 
-   * **Singleton articles** (no close neighbors):
-
-     * Summarized individually
-   * **Clusters of related articles**:
-
-     * Summarized jointly to produce a single, consolidated narrative
-     * Prevents repetition across outlets reporting the same event
+   * **Singleton articles** are summarized individually
+   * **Clusters of related articles** are summarized jointly to produce a single consolidated narrative
 
 7. **Talking Point Generation**
-   Cluster‑level summaries are merged and transformed into a structured script constrained by a target duration (e.g., 20 minutes).
+   Cluster‑level summaries are merged into a structured script constrained by a target duration (e.g., 20 minutes).
 
 8. **State Management**
    Each processed article is marked as summarized to ensure idempotent re‑runs and safe retries.
@@ -139,9 +137,9 @@ A semantic clustering and summarization system that converts raw F1 news article
 #### Why This Design
 
 * **Story‑centric summarization** instead of article‑centric output
-* **Cost‑aware LLM usage** by summarizing clusters, not duplicates
+* **Cost‑aware LLM usage** by summarizing clusters rather than duplicates
 * **Robust to news volume spikes** (race weekends, breaking news)
-* **Production‑ready**: batching, idempotency, and fault tolerance built in
+* **Production‑ready** through batching, idempotency, and fault tolerance
 
 ---
 
@@ -157,8 +155,8 @@ Ingestion and summarization are intentionally decoupled to:
 
 ### Retry & Fault Tolerance
 
-* Both DAGs include retry logic with configurable delays
-* Designed to handle transient network and scraping failures
+* DAGs include retry logic with configurable delays
+* Designed to handle transient network, scraping, and API failures
 
 ### Idempotent Tasks
 
@@ -170,14 +168,18 @@ Ingestion and summarization are intentionally decoupled to:
 * **Daily ingestion** ensures timely data capture
 * **Periodic summarization** reduces unnecessary LLM calls
 
+---
 
 ## Installation
 
+### Local (Python)
+
+1. Create and activate a virtual environment
+
+2. Install dependencies:
 
 ```
-        pip intall -r requirements.txt
+pip install -r requirements.txt
 ```
 
-
-
-
+> Docker‑based installation is recommended for production and Airflow execution.
