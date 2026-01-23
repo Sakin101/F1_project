@@ -153,16 +153,6 @@ Ingestion and summarization are intentionally decoupled to:
 * Enable different execution schedules
 * Reduce coupling between data collection and enrichment
 
-### Retry & Fault Tolerance
-
-* DAGs include retry logic with configurable delays
-* Designed to handle transient network, scraping, and API failures
-
-### Idempotent Tasks
-
-* Discovery and scraping tasks can be safely re-run
-* Duplicate data creation is explicitly avoided
-
 ### Production-Friendly Scheduling
 
 * **Daily ingestion** ensures timely data capture
