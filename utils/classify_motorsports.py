@@ -21,7 +21,7 @@ def classify_with_llm(title):
         entity=normalize_entity(entity)
         CLASSIFICATION_FREQUENCY[classification][entity]+=1
         if CLASSIFICATION_FREQUENCY[classification][entity]>3:
-            if norm_ent not in KEYWORD_MAP.get(classification,[]):
+            if entity not in KEYWORD_MAP.get(classification,[]):
                 KEYWORD_MAP[classification].append(entity)
     #breakpoint()
     return classification
@@ -53,6 +53,8 @@ def rule_based_motorsports_classification(
                 score+=1
         category_score[key]=score
     best_category, best_score=max(category_score.items(),key=lambda x:x[1])
+    if best_score<min_score:
+        return None
     sorted_score=sorted(category_score.values(),reverse=True)
     if len(sorted_score)>1 and sorted_score[0]<sorted_score[1]*dominance_ratio:
         return None
