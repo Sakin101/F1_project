@@ -1,12 +1,41 @@
-
+from collections import defaultdict
 import re
 _TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
-from config.config import KEYWORD_MAP, MOTORSPORT_CLASSIFICATION_PROMPT
+from config.config import KEYWORD_MAP as SEED_KEYWORD_MAP, MOTORSPORT_CLASSIFICATION_PROMPT
+from db.postgres_utils import load_keyword_counts,save_keyword_counts
+from copy import deepcopy
+
+PROMOTE_AT = 4
+CLASSIFICATION_FREQUENCY = defaultdict(lambda:defaultdict(int))
+
+keyword_map = deepcopy(SEED_KEYWORD_MAP)
+_state_loaded=False
+
 from utils.llm_call import call_llm
 from collections import defaultdict
 import json
 #TODO: Update database to add classification and news type.
 CLASSIFICATION_FREQUENCY=defaultdict(lambda:defaultdict(int))
+
+def _maybe_promote(category, entity):
+    if (CLASSIFICATION_FREQUENCY[category][entity] >= PROMOTE_AT
+            and entity not in keyword_map.get(category, [])):
+        keyword_map.setdefault(category, []).append(entity)
+
+#This runs only one per process which is true in the current case
+def load_keyword_state():
+    global _state_loaded
+    for category, entity, count in load_keyword_counts():
+        CLASSIFICATION_FREQUENCY[category][entity] = count
+        _maybe_promote(category, entity)
+    _state_loaded = True
+
+def save_keyword_state():
+    if not _state_loaded:
+        raise RuntimeError("save_keyword_state() called before load_keyword_state()")
+    save_keyword_counts(CLASSIFICATION_FREQUENCY)
+
+
 def classify_with_llm(title):
     #breakpoint()
     prompt=MOTORSPORT_CLASSIFICATION_PROMPT.format(title=title)
@@ -15,15 +44,14 @@ def classify_with_llm(title):
     json_data=json.loads(response)
     classification=json_data["category"]
     enteties=json_data["entities"]
-    if classification not in KEYWORD_MAP.keys():
+    if classification not in keyword_map:
         return classification
     for entity in enteties:
         entity=normalize_entity(entity)
+        if not entity:
+            continue
         CLASSIFICATION_FREQUENCY[classification][entity]+=1
-        if CLASSIFICATION_FREQUENCY[classification][entity]>3:
-            if entity not in KEYWORD_MAP.get(classification,[]):
-                KEYWORD_MAP[classification].append(entity)
-    #breakpoint()
+        _maybe_promote(classification,entity)
     return classification
 def normalize_entity(entity: str) -> str:
     return " ".join(tokenize(entity))
@@ -46,7 +74,7 @@ def rule_based_motorsports_classification(
     dominance_ratio:float=1.5
 ):
     category_score={}
-    for key,value in KEYWORD_MAP.items():
+    for key,value in keyword_map.items():
         score=0
         for phrase in value:
             if compare(title,phrase):

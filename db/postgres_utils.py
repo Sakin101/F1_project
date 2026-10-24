@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import func,create_engine,Table, Column, Boolean,String, MetaData, DateTime,select,update, and_
+from sqlalchemy import func,create_engine,Table, Column, Boolean,String,Integer ,MetaData, DateTime,select,update, and_
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
@@ -32,10 +32,23 @@ news_articles=Table(
 #metadata.drop_all(engine)
 #metadata.create_all(engine)
 
+keyword_stats=Table(
+    "keyword_stats",metadata,
+    Column("category",String, primary_key=True),
+    Column("entity",String,primary_key=True),
+    Column("count", Integer, nullable=False),
+
+
+)
+def load_keyword_counts():
+    with engine.connect() as conn:
+        return conn.execute(select(keyword_stats)).fetchall()
+    
 def url_exists(url:str):
     with engine.connect() as conn:
         result=conn.execute(select(news_articles.c.url).where(news_articles.c.url==url)).fetchone()
         return result
+    
 def insert_new_article(url:str,source:str,title:str,published_at,motorsports_type:str,title_type:str):
     with engine.connect() as conn:
         conn.execute(
@@ -44,6 +57,15 @@ def insert_new_article(url:str,source:str,title:str,published_at,motorsports_typ
             )
         )
         conn.commit()
+
+def save_keyword_counts(freq):            
+    rows = [{"category": c, "entity": e, "count": n}
+            for c, ents in freq.items() for e, n in ents.items()]
+    with engine.begin() as conn:
+        conn.execute(keyword_stats.delete())
+        if rows:
+            conn.execute(keyword_stats.insert(), rows)
+
 def get_pending_article():
     with engine.connect() as conn:
         result=conn.execute(
