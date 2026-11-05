@@ -5,7 +5,7 @@ A platform that ingests Formula 1 news, uses LLMs to work out what happened, and
 ## System Design
 
 ```mermaid
-flowchart LR
+flowchart TB
     %% ---------- External ----------
     subgraph EXT["🌐 External Sources"]
         RSS["RSS Feeds<br/>F1 news sites"]
@@ -14,7 +14,7 @@ flowchart LR
 
     %% ---------- Host ----------
     subgraph HOST["🐳 Docker Compose Host"]
-        direction LR
+        direction TB
 
         subgraph ORCH["Orchestration · Apache Airflow"]
             SCHED["Scheduler"]
@@ -73,7 +73,7 @@ flowchart LR
     SUM <--> LLM
     SUM --> OUT
     SUM -- "summarized = true" --> ART
-    MIG -.- ART
+    MIG -- "schema" --- ART
 
     %% ---------- Flows (planned) ----------
     ART -.-> EVT
