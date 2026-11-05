@@ -73,7 +73,7 @@ flowchart LR
     SUM <--> LLM
     SUM --> OUT
     SUM -- "summarized = true" --> ART
-    MIG -- "schema" --- ART
+    MIG -.- ART
 
     %% ---------- Flows (planned) ----------
     ART -.-> EVT
