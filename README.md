@@ -1,225 +1,114 @@
-# F1 Project
+# F1 Intelligence Platform
 
-A data pipeline for scraping Formula 1 news from multiple sources and transforming it into structured, production-ready talking points for video generation and editorial workflows.
+A platform that ingests Formula 1 news, uses LLMs to work out what happened, and links events, drivers, teams and races over time.
 
-The system is designed to:
+## System Design
 
-* Scrape motorsports news from diverse websites and RSS feeds
-* Classify and filter Formula 1 content from other motorsports (e.g., MotoGP, rally racing)
-* Separate **news**, **opinions**, and **explanatory** content
-* Summarize articles into concise, LLM-generated talking points while controlling cost
+```mermaid
+flowchart LR
+    %% ---------- External ----------
+    subgraph EXT["🌐 External Sources"]
+        RSS["RSS Feeds<br/>F1 news sites"]
+        WEB["Article Pages<br/>HTML"]
+    end
 
----
+    %% ---------- Host ----------
+    subgraph HOST["🐳 Docker Compose Host"]
+        direction LR
 
-## Table of Contents
+        subgraph ORCH["Orchestration · Apache Airflow"]
+            SCHED["Scheduler"]
+            UI["Webserver<br/>:8080"]
+        end
 
-* [Features](#features)
-* [Design Rationale](#design-rationale)
-* [Installation](#installation)
+        subgraph INGEST["DAG · f1_news_pipeline · @daily"]
+            DISC["① rss_discovery<br/>dedupe by URL"]
+            CLS{"② Rule-based<br/>keyword match<br/>confident?"}
+            SCRAPE["③ article_scraping<br/>extract body text"]
+        end
 
----
+        subgraph SUMM["DAG · f1_summarization · every 3 days"]
+            EMB["④ Batch embed<br/>title + body"]
+            CLUS["⑤ Cosine similarity<br/>+ HDBSCAN clustering"]
+            SUM["⑥ Summarize<br/>cluster / singleton"]
+            OUT["⑦ Talking-points<br/>script"]
+        end
 
-## Features
+        subgraph DATA["Storage · PostgreSQL 15"]
+            ART[("news_articles")]
+            KW[("keyword_stats")]
+            MIG["Alembic<br/>migrations"]
+        end
 
-### Motorsports News Classification Module
+        subgraph PLAN["🚧 Planned · Intelligence Layer"]
+            EVT["Event extraction"]
+            KG[("Temporal<br/>knowledge graph")]
+            QA["Q&A over<br/>multi-source evidence"]
+            ALERT["Emerging-story<br/>notifications"]
+        end
+    end
 
-A **hybrid classification approach** designed to minimize LLM usage as system confidence improves over time.
+    %% ---------- AI Provider ----------
+    subgraph AI["☁️ Mistral AI API"]
+        LLM["ministral-3b<br/>classify · summarize"]
+        EMBM["mistral-embed"]
+    end
 
-#### High-Level Flow
+    %% ---------- Flows (built) ----------
+    SCHED --> DISC
+    SCHED --> EMB
+    RSS --> DISC
+    DISC --> CLS
+    CLS -- "not confident" --> LLM
+    LLM -- "new entities" --> KW
+    KW -- "load keyword map" --> CLS
+    CLS -- "category + news type" --> ART
+    ART -- "pending URLs" --> SCRAPE
+    WEB --> SCRAPE
+    SCRAPE -- "body_text" --> ART
 
-```
-Incoming News Title
-        ↓
-Text Normalization & Tokenization
-        ↓
-Rule-Based Classification
-        ↓
-Confidence Evaluation
-        ├─ Confident → Return Category
-        └─ Not Confident
-               ↓
-         LLM Classification
-               ↓
-      Entity Extraction & Parsing
-               ↓
-     Keyword Frequency Tracking
-               ↓
-     Keyword Map Enrichment
-               ↓
-          Return Category
-```
+    ART -- "unsummarized F1 articles" --> EMB
+    EMB <--> EMBM
+    EMB --> CLUS --> SUM
+    SUM <--> LLM
+    SUM --> OUT
+    SUM -- "summarized = true" --> ART
+    MIG -- "schema" --- ART
 
-#### Key Characteristics
+    %% ---------- Flows (planned) ----------
+    ART -.-> EVT
+    EVT -.-> KG
+    KG -.-> QA
+    KG -.-> ALERT
 
-* Rule-first design to reduce unnecessary LLM calls
-* Confidence-driven fallback to LLM classification
-* Continuous keyword enrichment to improve future rule-based accuracy
-* Explicit filtering of non-F1 motorsports content
+    %% ---------- Styles ----------
+    classDef ext fill:#eef2f7,stroke:#5b6b82,color:#1b2430
+    classDef compute fill:#fff4e5,stroke:#e8890c,color:#3a2400
+    classDef store fill:#e8f1fb,stroke:#2f6fb5,color:#0d2742
+    classDef ai fill:#f3ecfb,stroke:#7a4cc2,color:#2a1250
+    classDef planned fill:#f7f7f7,stroke:#9a9a9a,stroke-dasharray:5 4,color:#555
 
----
-
-### F1 News Ingestion Pipeline
-
-**DAG ID:** `f1_news_pipeline`  
-**Schedule:** Daily  
-**Purpose:** Discover and scrape new Formula 1 news articles from RSS feeds.
-
-#### Pipeline Stages
-
-1. **RSS Discovery**
-
-   * Identifies new article URLs from configured RSS sources
-   * Prevents duplicate processing of previously discovered content
-
-2. **Article Scraping**
-
-   * Fetches full article content from discovered URLs
-   * Extracts structured data (title, body text, metadata)
-
-#### Execution Flow
-
-```
-RSS Discovery → Article Scraping
-```
-
-This pipeline focuses exclusively on **data collection** and runs daily to ensure timely ingestion of new content.
-
----
-
-### F1 News Summarization Pipeline
-
-A semantic clustering and summarization system that converts raw F1 news articles into coherent, video-ready talking points.
-
-#### What This Pipeline Does
-
-* Groups **semantically similar articles** covering the same story
-* Avoids redundant summaries for near-duplicate news
-* Produces **story-level digests** rather than article-level blurbs
-* Generates a final, time-bounded script optimized for video production
-
-#### How It Works (Conceptually)
-
-1. **Article Retrieval**
-   Unsummarized Formula 1 articles are fetched from the database.
-
-2. **Context Preparation**
-   Each article’s title and body are concatenated and truncated to a safe token length to fit embedding and LLM constraints.
-
-3. **Semantic Embedding (Batched)**
-   Articles are embedded in small batches to:
-
-   * Improve throughput
-   * Reduce latency spikes
-   * Control embedding API costs
-
-4. **Similarity Analysis**
-
-   * Cosine similarity is computed across all article embeddings
-   * Similarity is converted into a distance matrix suitable for clustering
-
-5. **Unsupervised Clustering (HDBSCAN)**
-
-   * Articles are grouped using density-based clustering
-   * The number of clusters is determined automatically
-   * Noise points (outliers) are treated as standalone stories
-
-6. **Adaptive Summarization Strategy**
-
-   * **Singleton articles** are summarized individually
-   * **Clusters of related articles** are summarized jointly to produce a single consolidated narrative
-
-7. **Talking Point Generation**
-   Cluster-level summaries are merged into a structured script constrained by a target duration (e.g., 20 minutes).
-
-8. **State Management**
-   Each processed article is marked as summarized to ensure idempotent re-runs and safe retries.
-
-#### Why This Design
-
-* **Story-centric summarization** instead of article-centric output
-* **Cost-aware LLM usage** by summarizing clusters rather than duplicates
-* **Robust to news volume spikes** (race weekends, breaking news)
-* **Production-ready** through batching, idempotency, and fault tolerance
-
----
-
-## Design Rationale
-
-### Pipeline Separation
-
-Ingestion and summarization are intentionally decoupled to:
-
-* Allow independent scaling
-* Enable different execution schedules
-* Reduce coupling between data collection and enrichment
-
-### Production-Friendly Scheduling
-
-* **Daily ingestion** ensures timely data capture
-* **Periodic summarization** reduces unnecessary LLM calls
-
----
-
-## Installation
-
-### Local (Python)
-
-1. Create and activate a virtual environment
-2. Install dependencies:
-
-```
-pip install -r requirements.txt
+    class RSS,WEB ext
+    class SCHED,UI,DISC,CLS,SCRAPE,EMB,CLUS,SUM,OUT compute
+    class ART,KW,MIG store
+    class LLM,EMBM ai
+    class EVT,KG,QA,ALERT planned
 ```
 
-### Docker (Recommended)
+**Legend:** solid arrows are built · dashed boxes and arrows are planned · circled numbers are the order of processing
 
-This project includes a Docker Compose setup for Airflow and PostgreSQL.
+| Component | Code |
+|---|---|
+| Airflow DAGs | [dags/](dags/) |
+| RSS discovery + classification | [scrapers/rss_discovery.py](scrapers/rss_discovery.py), [utils/classify_motorsports.py](utils/classify_motorsports.py) |
+| Article scraping | [scrapers/article_scraper.py](scrapers/article_scraper.py) |
+| Embedding, clustering, summaries | [pipeline/summarization_job.py](pipeline/summarization_job.py), [utils/llm_call.py](utils/llm_call.py) |
+| Database access | [db/postgres_utils.py](db/postgres_utils.py), [alembic/](alembic/) |
 
-#### Prerequisites
+## Run
 
-* Docker >= 20.x
-* Docker Compose v2
-
-#### Steps
-
-1. Clone the repository
-2. Create a `.env` file with required environment variables
-3. Start the stack:
-
-```
-docker compose up --build
+```bash
+docker compose up --build   # Airflow UI at http://localhost:8080
 ```
 
-This will:
-
-* Build a custom Airflow image with project dependencies
-* Start PostgreSQL
-* Initialize Airflow metadata database
-* Run Alembic migrations
-* Create an admin Airflow user
-* Launch Airflow webserver and scheduler
-
-#### Access Airflow UI
-
-```
-http://localhost:8080
-```
-#### Data Persistence
-
-Volumes:
-
-* `postgres_data` – PostgreSQL data
-* `airflow_logs` – Airflow logs
-* `airflow_home` – Airflow runtime and metadata
-
-#### Stop the Stack
-
-```
-docker compose down
-```
-
-Remove volumes as well:
-
-```
-docker compose down -v
-```
+Needs a `.env` file with `MISTRAL_API_KEY` and the database connection settings.
